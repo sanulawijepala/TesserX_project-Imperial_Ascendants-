@@ -8,8 +8,7 @@ int Time;
 int checkdelay = 1000 ;
 bool flood = 0 ; //this value is whether the system is in a flood state or not
 
-int SPKR = 3 ;//this is a PWM pin and is used for the speaker
-int DrnVlv = 2 ;//this is the output pin used to control the supply of electricity to the drainege valve 
+int SPKR = 3 ;//this is a PWM pin and is used for the speaker 
 int DrnVlv_pos = 0 ; // used to control the servo in the drainage valve
 int pitch = 1000 ; //the pitch of the alarm
 
@@ -46,8 +45,6 @@ void loop() {
   if (Time % checkdelay == 0) {
     
     if (WL_current > WL_start) {
-      
-      digitalWrite(DrnVlv , HIGH); //turns on the drainage valve
       
       DrnVlv_pos = 90;
       Valve.write(DrnVlv_pos);
