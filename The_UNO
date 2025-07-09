@@ -1,0 +1,116 @@
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+
+// I2C LCD Configuration (0x27 or 0x3F)
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
+
+// Hardware Pins
+const int SERVO_PIN = 9;     // Valve control
+const int BUZZER_PIN = 8;    // Alert buzzer
+
+// Servo Positions
+const int VALVE_CLOSED = 0;   // 0° = Closed
+const int VALVE_OPEN = 90;    // 90° = Open
+
+// Thresholds
+const int SAFE_LEVEL = 300;
+const int WARNING_LEVEL = 400;
+const int FLOOD_LEVEL = 500;
+
+Servo valveServo;
+unsigned long lastDataTime = 0;
+const unsigned long DATA_TIMEOUT = 5000; // 5 seconds without data
+
+void typeText(const String &text, int col, int row, int delayTime = 100) {
+  lcd.setCursor(col, row);
+  for (int i = 0; i < text.length(); i++) {
+    lcd.print(text[i]);
+    delay(delayTime);
+  }
+}
+
+void displayStatusFrame() {
+  lcd.clear();
+  typeText("Water Level:", 0, 0);
+  typeText("Flood Status:", 0, 1);
+}
+
+void updateDisplay(int waterLevel, const String &status, const String &color) {
+  // Clear only the value areas (positions 13-15)
+  lcd.setCursor(13, 0);
+  lcd.print("   ");
+  lcd.setCursor(13, 1);
+  lcd.print("   ");
+  
+  // Display water level with typing effect
+  lcd.setCursor(13, 0);
+  if (waterLevel >= 0) {
+    String levelText = String(waterLevel);
+    typeText(levelText, 13, 0, 50);
+  } else {
+    lcd.print("---");
+  }
+
+  // Display status with typing effect
+  lcd.setCursor(13, 1);
+  typeText(status, 13, 1, 50);
+
+  // Display color indicator (using symbols since most LCDs are monochrome)
+  lcd.setCursor(15, 1);
+  if (color == "RED") {
+    lcd.print("!");  // Red indicator
+  } else if (color == "YELLOW") {
+    lcd.print("*");  // Yellow indicator
+  } else {
+    lcd.print(" ");  // Green (blank)
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  lcd.init();
+  lcd.backlight();
+  
+  valveServo.attach(SERVO_PIN);
+  valveServo.write(VALVE_CLOSED);
+  
+  pinMode(BUZZER_PIN, OUTPUT);
+  
+  // Initial message with typing effect
+  typeText("aquaGardian v1.0", 0, 0);
+  typeText("initializing...", 0, 1);
+  delay(1000);
+  
+  // Show the status frame
+  displayStatusFrame();
+}
+
+void loop() {
+  if (Serial.available()) {
+    int waterLevel = Serial.parseInt();
+    lastDataTime = millis();
+
+    if (waterLevel >= FLOOD_LEVEL) {
+      updateDisplay(waterLevel, "ON ", "RED");
+      valveServo.write(VALVE_OPEN);
+      tone(BUZZER_PIN, 1000);
+    } 
+    else if (waterLevel >= WARNING_LEVEL) {
+      updateDisplay(waterLevel, "WAR", "YELLOW");
+      valveServo.write(VALVE_CLOSED);
+      tone(BUZZER_PIN, 1000, 500);
+    } 
+    else {
+      updateDisplay(waterLevel, "OFF", "GREEN");
+      valveServo.write(VALVE_CLOSED);
+      noTone(BUZZER_PIN);
+    }
+  }
+  
+  // Handle no data received
+  if (millis() - lastDataTime > DATA_TIMEOUT) {
+    updateDisplay(-1, "---", "");
+  }
+
+  delay(200);
+}
