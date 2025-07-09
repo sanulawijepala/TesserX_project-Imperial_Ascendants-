@@ -50,6 +50,7 @@ void loop() {
     
     dacWrite(ubject , ubjct_array[i]);// do this to the rest of the outputs
     dacWrite(ata , (int)ata_array[i]);
+    delay(20)
   }
 
   // Send to Blynk
