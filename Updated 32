@@ -1,0 +1,87 @@
+#define BLYNK_TEMPLATE_ID "TMPL6UDuEEOSD"
+#define BLYNK_TEMPLATE_NAME "Weather Monitoring System"
+#define BLYNK_AUTH_TOKEN "l0EB5AHY6LT-qT9hedz53V86PwvWSElD"
+#define ubject 25
+#define ata 26
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <DHT.h>
+
+// Blynk & WiFi
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Sulo";
+char pass[] = "12345678";
+int ubject_array[4] = {10, 20, 30, 40, 50}; // subject of the conversation with the UNO
+int ata_array[5]; // the conversation
+byte send_ata[5]; // what they actually hear
+
+// Sensors
+#define DHTPIN 35
+#define DHTTYPE DHT11
+#define SOIL_MOISTURE_PIN 33
+#define LDR_PIN 15
+#define RAIN_SENSOR_PIN 32 // Change this to the pin you're using for the rain sensor
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  pinMode(ubject, OUTPUT);
+  pinMode(ata, OUTPUT);
+  pinMode(RAIN_SENSOR_PIN, INPUT);
+  Blynk.begin(auth, ssid, pass);
+  dht.begin();
+  Serial.begin(115200);
+}
+
+void loop() {
+  Blynk.run();
+  
+  // Read sensors
+  int water_level = 0; // Initialize water_level
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  int soilMoisture = map(analogRead(SOIL_MOISTURE_PIN), 0, 4095, 0, 100);
+  int lightLevel = analogRead(LDR_PIN);
+  int rainValue = analogRead(RAIN_SENSOR_PIN);
+  int rainPercentage = map(rainValue, 0, 4095, 100, 0); // Convert to percentage (higher value = more rain)
+
+  ata_array[0] = water_level;
+  ata_array[1] = (int)humidity;
+  ata_array[2] = (int)temperature;
+  ata_array[3] = soilMoisture;
+  ata_array[4] = lightLevel;
+
+  for (int i = 0; i < 5; i++) {
+    send_ata[i] = ata_array[i] / 16;
+  }
+
+  for(int i = 0; i < 5; i++) {
+    dacWrite(ubject, ubject_array[i]); // do this to the rest of the outputs
+    dacWrite(ata, send_ata[i]);
+    delay(20);
+  }
+
+  // Send to Blynk
+  Blynk.virtualWrite(V0, humidity);
+    Blynk.virtualWrite(V1, rainPercentage);
+  Blynk.virtualWrite(V2, lightLevel);
+  Blynk.virtualWrite(V3, soilMoisture);
+  Blynk.virtualWrite(V4, water_level); // Add rain data to Blynk
+
+  // Send alerts to UNO (format: "SOIL_ALERT" or "HUMIDITY_ALERT")
+  if (soilMoisture < 30) {
+    Serial.println("SOIL_ALERT");
+    Blynk.logEvent("dry_soil");
+  }
+  if (humidity < 30) {
+    Serial.println("HUMIDITY_ALERT");
+    Blynk.logEvent("low_humidity");
+  }
+  if (rainPercentage > 70) {
+    Serial.println("RAIN_ALERT");
+    Blynk.logEvent("heavy_rain");
+  }
+
+  delay(2000);
+}
