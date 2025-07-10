@@ -1,42 +1,38 @@
 #include <LiquidCrystal_I2C.h>
 #include <Servo.h>
 
+#define R_LED 10
+#define G_LED 2
+
 // I2C LCD Configuration (0x27 or 0x3F)
 LiquidCrystal_I2C lcd(0x3F, 16, 2);
 
 // Hardware Pins
 const int SERVO_PIN = 9;     // Valve control
-const int BUZZER_PIN = 8;    // Alert buzzer
+const int BUZZER_PIN = 12;    // Alert buzzer
 
 // Servo Positions
 const int VALVE_CLOSED = 0;   // 0° = Closed
 const int VALVE_OPEN = 90;    // 90° = Open
 
 // Thresholds
-const int SAFE_LEVEL = 300;
-const int WARNING_LEVEL = 400;
-const int FLOOD_LEVEL = 500;
+const int FLOOD_LEVEL = 7;
 
-const int water_level_io = 10 ;
-const int temp = 30 ;
-const int humidity_io = 20 ;
-const int light_level_io = 50 ;
-const int soil_moisture_io = 40;
+int water_level_proc[10] ;
 
 int water_level ;
 int subject;
 int data;
 int tmpobj;
-/* calibrate these vars to be more error resistant */
-int subj_arr[5] = (int)[26,52,78,105,131];
-int data_arr[5];
+
+bool trigger1 ; 
 bool flood_status;
 
 Servo valveServo;
 unsigned long lastDataTime = 0;
 const unsigned long DATA_TIMEOUT = 5000; // 5 seconds without data
 
-void typeText(const String &text, int col, int row, int delayTime = 100) {
+void typeText(const String &text, int col, int row, int delayTime = 10) {
   lcd.setCursor(col, row);
   for (int i = 0; i < text.length(); i++) {
     lcd.print(text[i]);
@@ -60,12 +56,10 @@ void updateDisplay(int water_level, const String &status, const String &color) {
   // Display water level with typing effect
   lcd.setCursor(13, 0);
   if (water_level >= 0) {
-    String levelText = String(water_Level);
+    String levelText = String(water_level);
     typeText(levelText, 13, 0, 50);
-  } else {
-    lcd.print("---");
+    //delay(250);
   }
-
   // Display status with typing effect
   lcd.setCursor(13, 1);
   typeText(status, 13, 1, 50);
@@ -74,10 +68,9 @@ void updateDisplay(int water_level, const String &status, const String &color) {
   lcd.setCursor(15, 1);
   if (color == "RED") {
     lcd.print("!");  // Red indicator
-  } else if (color == "YELLOW") {
-    lcd.print("*");  // Yellow indicator
-  } else {
-    lcd.print(" ");  // Green (blank)
+  }
+  else {
+    lcd.print(":)");  // Green (happy)
   }
 }
 
@@ -96,49 +89,56 @@ void setup() {
   // Initial message with typing effect
   typeText("aquaGardian v1.0", 0, 0);
   typeText("initializing...", 0, 1);
-  delay(1000);
+  delay(500);
   
   // Show the status frame
   displayStatusFrame();
+
+  if (trigger1){//take the WL input every 10ms and store the past 100ms at the startup
+    for (int i = 0 ; i > 10 ; i++){  
+      water_level_proc[i] = analogRead(A0)/24;
+      delay(10);
+      trigger1 = 1;
+    }
+  }
+  
 }
 
 void loop() {
 
-  water_level = analogRead(A0);
-  
+  Serial.println(water_level);
+
+    for (int i = 0 ; i > 9 ; i++){		//shift the array by one
+    	water_level_proc[i] = water_level_proc[ i+1 ];
+    }
+    
+    water_level_proc[9] = analogRead(A0); //sets the last var of the array to the WL input and waits 10ms to maintain the 100ms buffer
+    delay(10);
+    
+
+    for (int i = 1 ; i > 10 ; i++){
+    	tmpobj = (( water_level_proc[ i-1 ] * i ) + water_level_proc[i] ) /( i + 1 );	//get the average of the water level over the past 100ms
+    }
+
+    water_level = tmpobj ;	//set the water level to the average
 
     if (water_level >= FLOOD_LEVEL) {
-      updateDisplay(water_level, "ON ", "RED");
+      updateDisplay(water_level, "R ", "RED");
       valveServo.write(VALVE_OPEN);
       tone(BUZZER_PIN, 1000);
       flood_status = 1;
-      digitalWrite(R_LED, HIGH);
-      digitalWrite(Y_LED, LOW);
-      digitalWrite(G_LED, LOW);
+      tone(R_LED , 100);
+      noTone(G_LED);
     } 
-    else if (water_level >= WARNING_LEVEL) {
-      updateDisplay(water_level, "WAR", "YELLOW");
-      valveServo.write(VALVE_CLOSED);
-      tone(BUZZER_PIN, 1000, 250);
-      delay(500);
-      digitalWrite(R_LED, LOW);
-      digitalWrite(Y_LED, HIGH);
-      digitalWrite(G_LED, LOW);
-      } 
     else {
-      updateDisplay(water_level, "OFF", "GREEN");
+      updateDisplay(water_level, "G", "GREEN");
       valveServo.write(VALVE_CLOSED);
       noTone(BUZZER_PIN);
       flood_status = 0;
-      digitalWrite(R_LED, LOW);
-      digitalWrite(Y_LED, LOW);
-      digitalWrite(G_LED, HIGH);
+      noTone(R_LED);
+      tone(G_LED, 100);
       }
   
-  // Handle no data received
-  if (millis() - lastDataTime > DATA_TIMEOUT) {
-    updateDisplay(-1, "---", "");
-  }
 
-  delay(200);
+  //delay(250);
 }
