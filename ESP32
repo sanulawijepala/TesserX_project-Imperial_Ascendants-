@@ -14,6 +14,7 @@
 #define BLYNK_TEMPLATE_ID "TMPL6UDuEEOSD"
 #define BLYNK_TEMPLATE_NAME "Weather Monitoring System"
 #define BLYNK_AUTH_TOKEN "l0EB5AHY6LT-qT9hedz53V86PwvWSElD"
+#define ata = 25
 
 #include <WiFi.h>
 #include <BlynkSimpleEsp32.h>
@@ -25,7 +26,6 @@ char ssid[] = "Sulo";
 char pass[] = "12345678";
 int ata_proc;//the conversation
 byte send_ata ;//what they actually hear
-const int ata = 25; 
 
 // Sensors
 #define DHTPIN 35
@@ -37,7 +37,6 @@ const int ata = 25;
 DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
-pinMode(ubject, OUTPUT);
 pinMode(ata, OUTPUT);
 pinMode(RAIN_SENSOR_PIN, INPUT);
 Blynk.begin(auth, ssid, pass);
