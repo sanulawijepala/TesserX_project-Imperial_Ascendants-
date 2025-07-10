@@ -14,6 +14,7 @@ char ssid[] = "Sulo";
 char pass[] = "12345678";
 int ubject_array[4] = [10 , 20 , 30 , 40 , 50];//subject of the conversation with the UNO
 int ata_array[4];//the conversation
+byte send_ata[5] ;//what they actually hear
 
 // Sensors
 #define DHTPIN 4
@@ -46,10 +47,15 @@ void loop() {
   ata_array[3] = soilMoisture ;
   ata_array[4] = lightLevel ;
 
+  for (int i ; i >=4 ; i++){
+    send_ata[i] = ara_array[i] / 16
+  }
+
   for(int i ; i >= 4 ; i++){
     
     dacWrite(ubject , ubjct_array[i]);// do this to the rest of the outputs
-    dacWrite(ata , (int)ata_array[i]);
+    dacWrite(ata , send_ata[i]);
+    delay(20)
   }
 
   // Send to Blynk
